@@ -6,7 +6,7 @@ import { API_KEY, API_URL, APP_ID, APP_INFO } from '@/config'
 const userPrefix = `user_${APP_ID}:`
 
 export const getInfo = (request: NextRequest) => {
-  const sessionId = request.cookies.get('session_id')?.value || v4()
+  const sessionId = request.headers.get('x-session-id') || request.cookies.get('session_id')?.value || v4()
   const user = userPrefix + sessionId
   return {
     sessionId,
@@ -15,10 +15,11 @@ export const getInfo = (request: NextRequest) => {
 }
 
 export const setSession = (sessionId: string) => {
-  if (APP_INFO.disable_session_same_site)
-  { return { 'Set-Cookie': `session_id=${sessionId}; SameSite=None; Secure` } }
+  if (APP_INFO.disable_session_same_site) {
+    return { 'Set-Cookie': `session_id=${sessionId}; SameSite=None; Secure; Partitioned; Path=/; Max-Age=31536000` }
+  }
 
-  return { 'Set-Cookie': `session_id=${sessionId}` }
+  return { 'Set-Cookie': `session_id=${sessionId}; Path=/; Max-Age=31536000` }
 }
 
 export const client = new ChatClient(API_KEY, API_URL || 'https://api.dify.ai/v1')

@@ -1,7 +1,31 @@
+import { v4 as uuidv4 } from 'uuid'
 import { API_PREFIX } from '@/config'
 import Toast from '@/app/components/base/toast'
 import type { AnnotationReply, MessageEnd, MessageReplace, ThoughtItem } from '@/app/components/chat/type'
 import type { VisionFile } from '@/types/app'
+
+let memorySessionId = ''
+
+export const getClientSessionId = () => {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+  try {
+    let sessionId = localStorage.getItem('dify_client_session_id')
+    if (!sessionId) {
+      sessionId = memorySessionId || uuidv4()
+      localStorage.setItem('dify_client_session_id', sessionId)
+    }
+    memorySessionId = sessionId
+    return sessionId
+  }
+  catch (e) {
+    if (!memorySessionId) {
+      memorySessionId = uuidv4()
+    }
+    return memorySessionId
+  }
+}
 
 const TIME_OUT = 100000
 
@@ -267,6 +291,16 @@ const handleStream = (
 const baseFetch = (url: string, fetchOptions: any, { needAllResponseContent }: IOtherOptions) => {
   const options = Object.assign({}, baseOptions, fetchOptions)
 
+  const clientSessionId = getClientSessionId()
+  const headers = new Headers(fetchOptions?.headers || {})
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', ContentType.json)
+  }
+  if (clientSessionId) {
+    headers.set('x-session-id', clientSessionId)
+  }
+  options.headers = headers
+
   const urlPrefix = API_PREFIX
 
   let urlWithPrefix = `${urlPrefix}${url.startsWith('/') ? url : `/${url}`}`
@@ -359,6 +393,11 @@ export const upload = (fetchOptions: any): Promise<any> => {
     xhr.open(options.method, options.url)
     for (const key in options.headers) { xhr.setRequestHeader(key, options.headers[key]) }
 
+    const clientSessionId = getClientSessionId()
+    if (clientSessionId) {
+      xhr.setRequestHeader('x-session-id', clientSessionId)
+    }
+
     xhr.withCredentials = true
     xhr.onreadystatechange = function () {
       if (xhr.readyState === 4) {
@@ -391,6 +430,16 @@ export const ssePost = (
   const options = Object.assign({}, baseOptions, {
     method: 'POST',
   }, fetchOptions)
+
+  const clientSessionId = getClientSessionId()
+  const headers = new Headers(fetchOptions?.headers || {})
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', ContentType.json)
+  }
+  if (clientSessionId) {
+    headers.set('x-session-id', clientSessionId)
+  }
+  options.headers = headers
 
   const urlPrefix = API_PREFIX
   const urlWithPrefix = `${urlPrefix}${url.startsWith('/') ? url : `/${url}`}`

@@ -95,6 +95,7 @@ const Main: FC<IMainProps> = () => {
   } = useConversation()
 
   const [conversationIdChangeBecauseOfNew, setConversationIdChangeBecauseOfNew, getConversationIdChangeBecauseOfNew] = useGetState(false)
+  const loadedConversationIdRef = useRef<string | null>(null)
   const [isChatStarted, { setTrue: setChatStarted, setFalse: setChatNotStarted }] = useBoolean(true)
   const handleStartChat = (inputs: Record<string, any>) => {
     createNewChat()
@@ -138,8 +139,24 @@ const Main: FC<IMainProps> = () => {
 
     // update chat list of current conversation
     if (!isNewConversation && !conversationIdChangeBecauseOfNew && !isResponding) {
+      if (loadedConversationIdRef.current === currConversationId) {
+        // Conversation already loaded in memory, do not re-fetch and do not overwrite chatList
+        return
+      }
+
       fetchChatList(currConversationId).then((res: any) => {
         const { data = [] } = res || {}
+        if (!data || data.length === 0) {
+          // If server returns empty list, do NOT wipe out existing messages if user has already spoken
+          const inMemoryList = getChatList()
+          const hasUserMessages = inMemoryList.some(item => !item.isAnswer)
+          if (!hasUserMessages) {
+            setChatList(generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs))
+          }
+          loadedConversationIdRef.current = currConversationId
+          return
+        }
+
         const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
 
         data.forEach((item: any) => {
@@ -160,19 +177,27 @@ const Main: FC<IMainProps> = () => {
           })
         })
         setChatList(newChatList)
-      }).catch(() => {
-        setChatList(generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs))
+        loadedConversationIdRef.current = currConversationId
+      }).catch((err) => {
+        console.error('Failed to fetch chat list:', err)
+        // Keep in-memory chat list intact on error
       })
     }
 
     if (isNewConversation) {
+      loadedConversationIdRef.current = '-1'
       setChatStarted()
-      setChatList(generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs))
+      const currentList = getChatList()
+      const hasUserMessages = currentList.some(item => !item.isAnswer)
+      if (!hasUserMessages) {
+        setChatList(generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs))
+      }
     }
   }
   useEffect(handleConversationSwitch, [currConversationId, inited])
 
   const handleConversationIdChange = (id: string) => {
+    loadedConversationIdRef.current = null
     if (id === '-1') {
       createNewChat()
       setConversationIdChangeBecauseOfNew(true)
@@ -485,7 +510,10 @@ const Main: FC<IMainProps> = () => {
           hasSetResponseId = true
         }
 
-        if (isFirstMessage && newConversationId) { tempNewConversationId = newConversationId }
+        if (isFirstMessage && newConversationId) {
+          tempNewConversationId = newConversationId
+          loadedConversationIdRef.current = newConversationId
+        }
 
         setMessageTaskId(taskId)
         // has switched to other conversation
@@ -523,7 +551,11 @@ const Main: FC<IMainProps> = () => {
         setConversationIdChangeBecauseOfNew(false)
         resetNewConversationInputs()
         if (tempNewConversationId) {
+          loadedConversationIdRef.current = tempNewConversationId
           setCurrConversationId(tempNewConversationId, APP_ID, true)
+        }
+        else {
+          loadedConversationIdRef.current = getCurrConversationId() || '-1'
         }
         updateCurrentQA({
           responseItem,
@@ -649,6 +681,7 @@ const Main: FC<IMainProps> = () => {
         }
         if (conversation_id && !tempNewConversationId) {
           tempNewConversationId = conversation_id
+          loadedConversationIdRef.current = conversation_id
         }
         updateCurrentQA({
           responseItem,
@@ -670,6 +703,7 @@ const Main: FC<IMainProps> = () => {
           }
           if (conversation_id && !tempNewConversationId) {
             tempNewConversationId = conversation_id
+            loadedConversationIdRef.current = conversation_id
           }
           updateCurrentQA({
             responseItem,
