@@ -31,7 +31,7 @@ const Main: FC<IMainProps> = () => {
   const { t } = useTranslation()
   const media = useBreakpoints()
   const isMobile = media === MediaType.mobile
-  const hasSetAppConfig = Boolean(APP_ID && API_KEY && APP_ID !== 'undefined' && API_KEY !== 'undefined')
+  const hasSetAppConfig = Boolean(APP_ID && APP_ID !== 'undefined')
 
   /*
   * app info
@@ -652,7 +652,7 @@ const Main: FC<IMainProps> = () => {
 
   if (appUnavailable) {
     const errMessage = !hasSetAppConfig
-      ? 'Please set NEXT_PUBLIC_APP_ID and NEXT_PUBLIC_APP_KEY in your environment variables'
+      ? 'Please set APP_ID (or NEXT_PUBLIC_APP_ID) in your environment variables'
       : (serverError || '')
     return <AppUnavailable isUnknownReason={isUnknownReason} errMessage={errMessage} />
   }

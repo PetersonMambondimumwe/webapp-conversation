@@ -1,6 +1,5 @@
 import type { AppInfo } from '@/types/app'
-const cleanEnv = (key: string, fallback = '') => {
-  const val = process.env[key]
+const clean = (val?: string, fallback = '') => {
   if (!val || val === 'undefined' || val === 'null') return fallback
   let trimmed = val.trim()
   if ((trimmed.startsWith("'") && trimmed.endsWith("'")) || (trimmed.startsWith('"') && trimmed.endsWith('"'))) {
@@ -9,10 +8,10 @@ const cleanEnv = (key: string, fallback = '') => {
   return trimmed || fallback
 }
 
-export const APP_ID = cleanEnv('NEXT_PUBLIC_APP_ID') || cleanEnv('APP_ID')
-export const API_KEY = cleanEnv('NEXT_PUBLIC_APP_KEY') || cleanEnv('APP_KEY')
+export const APP_ID = clean(process.env.NEXT_PUBLIC_APP_ID) || clean(process.env.APP_ID)
+export const API_KEY = clean(process.env.NEXT_PUBLIC_APP_KEY) || clean(process.env.APP_KEY)
 
-const rawApiUrl = cleanEnv('NEXT_PUBLIC_API_URL') || cleanEnv('API_URL')
+const rawApiUrl = clean(process.env.NEXT_PUBLIC_API_URL) || clean(process.env.API_URL)
 export const API_URL = (() => {
   if (!rawApiUrl) return 'https://api.dify.ai/v1'
   let url = rawApiUrl
