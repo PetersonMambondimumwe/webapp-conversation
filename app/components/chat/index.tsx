@@ -10,7 +10,6 @@ import Question from './question'
 import type { FeedbackFunc } from './type'
 import type { ChatItem, VisionFile, VisionSettings } from '@/types/app'
 import { TransferMethod } from '@/types/app'
-import Tooltip from '@/app/components/base/tooltip'
 import Toast from '@/app/components/base/toast'
 import ChatImageUploader from '@/app/components/base/image-uploader/chat-image-uploader'
 import ImageList from '@/app/components/base/image-uploader/image-list'
@@ -70,8 +69,8 @@ const Chat: FC<IChatProps> = ({
   }
 
   const valid = () => {
-    const query = queryRef.current
-    if (!query || query.trim() === '') {
+    const q = queryRef.current
+    if (!q || q.trim() === '') {
       logError(t('app.errorMessage.valueOfVarRequired'))
       return false
     }
@@ -84,6 +83,7 @@ const Chat: FC<IChatProps> = ({
       queryRef.current = ''
     }
   }, [controlClearQuery])
+
   const {
     files,
     onUpload,
@@ -126,7 +126,6 @@ const Chat: FC<IChatProps> = ({
   const handleKeyUp = (e: any) => {
     if (e.code === 'Enter') {
       e.preventDefault()
-      // prevent send message when using input method enter
       if (!e.shiftKey && !isUseInputMethod.current) { handleSend() }
     }
   }
@@ -144,24 +143,26 @@ const Chat: FC<IChatProps> = ({
   const suggestionClick = (suggestion: string) => {
     setQuery(suggestion)
     queryRef.current = suggestion
-    handleSend()
+    onSend(suggestion, [])
   }
 
   return (
-    <div className={cn(!feedbackDisabled && 'px-3.5', 'h-full')}>
+    <div className={cn(!feedbackDisabled && 'px-3 sm:px-4', 'h-full flex flex-col')}>
       {/* Chat List */}
-      <div className="h-full space-y-[30px]">
+      <div className="flex-1 space-y-4 pb-2">
         {chatList.map((item) => {
           if (item.isAnswer) {
             const isLast = item.id === chatList[chatList.length - 1].id
-            return <Answer
-              key={item.id}
-              item={item}
-              feedbackDisabled={feedbackDisabled}
-              onFeedback={onFeedback}
-              isResponding={isResponding && isLast}
-              suggestionClick={suggestionClick}
-            />
+            return (
+              <Answer
+                key={item.id}
+                item={item}
+                feedbackDisabled={feedbackDisabled}
+                onFeedback={onFeedback}
+                isResponding={isResponding && isLast}
+                suggestionClick={suggestionClick}
+              />
+            )
           }
           return (
             <Question
@@ -169,78 +170,91 @@ const Chat: FC<IChatProps> = ({
               id={item.id}
               content={item.content}
               useCurrentUserAvatar={useCurrentUserAvatar}
-              imgSrcs={(item.message_files && item.message_files?.length > 0) ? item.message_files.map(item => item.url) : []}
+              imgSrcs={(item.message_files && item.message_files?.length > 0) ? item.message_files.map(fileItem => fileItem.url) : []}
             />
           )
         })}
       </div>
-      {
-        !isHideSendInput && (
-          <div className='fixed z-10 bottom-0 left-1/2 transform -translate-x-1/2 pc:ml-[122px] tablet:ml-[96px] mobile:ml-0 pc:w-[794px] tablet:w-[794px] max-w-full mobile:w-full px-3.5'>
-            <div className='p-[5.5px] max-h-[150px] bg-white border-[1.5px] border-gray-200 rounded-xl overflow-y-auto'>
-              {
-                visionConfig?.enabled && (
-                  <>
-                    <div className='absolute bottom-2 left-2 flex items-center'>
-                      <ChatImageUploader
-                        settings={visionConfig}
-                        onUpload={onUpload}
-                        disabled={files.length >= visionConfig.number_limits}
-                      />
-                      <div className='mx-1 w-[1px] h-4 bg-black/5' />
-                    </div>
-                    <div className='pl-[52px]'>
-                      <ImageList
-                        list={files}
-                        onRemove={onRemove}
-                        onReUpload={onReUpload}
-                        onImageLinkLoadSuccess={onImageLinkLoadSuccess}
-                        onImageLinkLoadError={onImageLinkLoadError}
-                      />
-                    </div>
-                  </>
-                )
-              }
-              {
-                fileConfig?.enabled && (
-                  <div className={`${visionConfig?.enabled ? 'pl-[52px]' : ''} mb-1`}>
-                    <FileUploaderInAttachmentWrapper
-                      fileConfig={fileConfig}
-                      value={attachmentFiles}
-                      onChange={setAttachmentFiles}
-                    />
-                  </div>
-                )
-              }
-              <Textarea
-                className={`
-                  block w-full px-2 pr-[118px] py-[7px] leading-5 max-h-none text-base text-gray-700 outline-none appearance-none resize-none
-                  ${visionConfig?.enabled && 'pl-12'}
-                `}
-                value={query}
-                onChange={handleContentChange}
-                onKeyUp={handleKeyUp}
-                onKeyDown={handleKeyDown}
-                autoSize
+
+      {/* Modern Input Area & Branded Footer */}
+      {!isHideSendInput && (
+        <div className="sticky z-10 bottom-0 w-full px-3 sm:px-4 pb-2 bg-gradient-to-t from-white via-white/95 to-transparent pt-2 mt-auto">
+          {/* File Upload Preview */}
+          {files.length > 0 && (
+            <div className="mb-2 pl-4">
+              <ImageList
+                list={files}
+                onRemove={onRemove}
+                onReUpload={onReUpload}
+                onImageLinkLoadSuccess={onImageLinkLoadSuccess}
+                onImageLinkLoadError={onImageLinkLoadError}
               />
-              <div className="absolute bottom-2 right-6 flex items-center h-8">
-                <div className={`${s.count} mr-3 h-5 leading-5 text-sm bg-gray-50 text-gray-500 px-2 rounded`}>{query.trim().length}</div>
-                <Tooltip
-                  selector='send-tip'
-                  htmlContent={
-                    <div>
-                      <div>{t('common.operation.send')} Enter</div>
-                      <div>{t('common.operation.lineBreak')} Shift Enter</div>
-                    </div>
-                  }
-                >
-                  <div className={`${s.sendBtn} w-8 h-8 cursor-pointer rounded-md`} onClick={handleSend}></div>
-                </Tooltip>
-              </div>
             </div>
+          )}
+
+          {/* Pill Container */}
+          <div className="flex items-center bg-white border border-slate-200/90 focus-within:border-[#0066ff] focus-within:ring-2 focus-within:ring-blue-100 rounded-full shadow-md py-1 px-3 sm:px-4 transition-all duration-150">
+            {visionConfig?.enabled && (
+              <div className="shrink-0 mr-1.5 flex items-center">
+                <ChatImageUploader
+                  settings={visionConfig}
+                  onUpload={onUpload}
+                  disabled={files.length >= visionConfig.number_limits}
+                />
+              </div>
+            )}
+            {fileConfig?.enabled && (
+              <div className="shrink-0 mr-1.5">
+                <FileUploaderInAttachmentWrapper
+                  fileConfig={fileConfig}
+                  value={attachmentFiles}
+                  onChange={setAttachmentFiles}
+                />
+              </div>
+            )}
+
+            {/* Message Input */}
+            <Textarea
+              className="grow px-2 py-2 leading-relaxed text-sm text-slate-800 placeholder-slate-400 outline-none appearance-none resize-none bg-transparent max-h-[120px]"
+              placeholder="Type your message..."
+              value={query}
+              onChange={handleContentChange}
+              onKeyUp={handleKeyUp}
+              onKeyDown={handleKeyDown}
+              autoSize={{ minRows: 1, maxRows: 4 }}
+            />
+
+            {/* Circular Blue Send Button */}
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={isResponding || (!query.trim() && files.length === 0 && attachmentFiles.length === 0)}
+              className="w-10 h-10 rounded-full bg-[#0066ff] hover:bg-[#0052cc] disabled:bg-slate-300 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-sm shrink-0 transition-all duration-150 active:scale-95 ml-1"
+              title={t('common.operation.send') || 'Send'}
+              aria-label="Send Message"
+            >
+              <svg className="w-5 h-5 text-white transform rotate-45 -mr-0.5 -mt-0.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            </button>
           </div>
-        )
-      }
+
+          {/* Branded Footer from Mockup: Powered by Mambo Systems */}
+          <div className="flex items-center justify-center space-x-1.5 pt-2 text-[11px] sm:text-xs text-slate-500 font-medium select-none">
+            <img
+              src="/mambo-logo-transparent-hd.png"
+              alt="Mambo Logo"
+              className="w-3.5 h-3.5 object-contain"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/mambo-logo.png'
+              }}
+            />
+            <span>
+              Powered by <strong className="text-slate-700 font-semibold">Mambo Systems</strong>
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

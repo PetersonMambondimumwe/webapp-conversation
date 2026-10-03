@@ -21,9 +21,9 @@ export const API_URL = (() => {
   return url.replace(/\/+$/, '')
 })()
 export const APP_INFO: AppInfo = {
-  title: 'Chat APP',
-  description: '',
-  copyright: '',
+  title: 'Mambo Systems & Analytics',
+  description: 'Web · AI · Automation',
+  copyright: 'Mambo Systems',
   privacy_policy: '',
   default_language: 'en',
   disable_session_same_site: false, // set it to true if you want to embed the chatbot in an iframe

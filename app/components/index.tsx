@@ -39,6 +39,7 @@ const Main: FC<IMainProps> = () => {
   const [appUnavailable, setAppUnavailable] = useState<boolean>(false)
   const [isUnknownReason, setIsUnknownReason] = useState<boolean>(false)
   const [serverError, setServerError] = useState<string>('')
+  const [isMinimized, setIsMinimized] = useState<boolean>(false)
   const [promptConfig, setPromptConfig] = useState<PromptConfig | null>(null)
   const [inited, setInited] = useState<boolean>(false)
   // in mobile, show sidebar by click button
@@ -52,8 +53,8 @@ const Main: FC<IMainProps> = () => {
   const [fileConfig, setFileConfig] = useState<FileUpload | undefined>()
 
   useEffect(() => {
-    if (APP_INFO?.title) { document.title = `${APP_INFO.title} - Powered by Dify` }
-  }, [APP_INFO?.title])
+    if (APP_INFO?.title) { document.title = `${APP_INFO.title} - ${APP_INFO.description || 'Web · AI · Automation'}` }
+  }, [APP_INFO?.title, APP_INFO?.description])
 
   // onData change thought (the produce obj). https://github.com/immerjs/immer/issues/576
   useEffect(() => {
@@ -277,7 +278,13 @@ const Main: FC<IMainProps> = () => {
         })
         setConversationList(conversations as ConversationItem[])
 
-        if (isNotNewConversation) { setCurrConversationId(_conversationId, APP_ID, false) }
+        if (isNotNewConversation) {
+          setCurrConversationId(_conversationId, APP_ID, false)
+        }
+        else if (!prompt_variables || prompt_variables.length === 0) {
+          setChatStarted()
+          setChatList(generateNewChatListWithOpenStatement(introduction, {}))
+        }
 
         setInited(true)
       }
@@ -660,40 +667,87 @@ const Main: FC<IMainProps> = () => {
   if (!APP_ID || !APP_INFO || !promptConfig) { return <Loading type='app' /> }
 
   return (
-    <div className='bg-gray-100'>
-      <Header
-        title={APP_INFO.title}
-        isMobile={isMobile}
-        onShowSideBar={showSidebar}
-        onCreateNewChat={() => handleConversationIdChange('-1')}
-      />
-      <div className="flex rounded-t-2xl bg-white overflow-hidden">
-        {/* sidebar */}
-        {!isMobile && renderSidebar()}
-        {isMobile && isShowSidebar && (
-          <div className='fixed inset-0 z-50' style={{ backgroundColor: 'rgba(35, 56, 118, 0.2)' }} onClick={hideSidebar} >
-            <div className='inline-block' onClick={e => e.stopPropagation()}>
-              {renderSidebar()}
-            </div>
-          </div>
-        )}
-        {/* main */}
-        <div className='flex-grow flex flex-col h-[calc(100vh_-_3rem)] overflow-y-auto'>
-          <ConfigSence
-            conversationName={conversationName}
-            hasSetInputs={hasSetInputs}
-            isPublicVersion={isShowPrompt}
-            siteInfo={APP_INFO}
-            promptConfig={promptConfig}
-            onStartChat={handleStartChat}
-            canEditInputs={canEditInputs}
-            savedInputs={currInputs as Record<string, any>}
-            onInputsChange={setCurrInputs}
-          ></ConfigSence>
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-100 via-blue-50/30 to-slate-200 flex flex-col items-center justify-center p-0 sm:p-4 md:p-6 relative select-text">
+      {/* Floating Launcher Button at Bottom Right (from Mockup) */}
+      <button
+        type="button"
+        onClick={() => setIsMinimized(prev => !prev)}
+        className={`fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer ${
+          isMinimized ? 'opacity-100 pointer-events-auto' : 'opacity-90 hover:opacity-100'
+        }`}
+        aria-label="Toggle Chat"
+        title="Chat with Mambo Systems"
+      >
+        <img
+          src="/launcher-btn-hd.png"
+          alt="Chat Launcher"
+          className="w-full h-full object-contain drop-shadow-xl"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = '/launcher-btn.png'
+          }}
+        />
+      </button>
 
-          {
-            hasSetInputs && (
-              <div className='relative grow pc:w-[794px] max-w-full mobile:w-full pb-[180px] mx-auto mb-3.5' ref={chatListDomRef}>
+      {/* Main Widget Card */}
+      {!isMinimized && (
+        <div className="relative w-full max-w-[620px] h-screen sm:h-[90vh] sm:max-h-[820px] bg-white sm:rounded-3xl sm:shadow-2xl sm:border sm:border-slate-200/80 flex flex-col overflow-hidden transition-all duration-300">
+          {/* Branded Header */}
+          <Header
+            title={APP_INFO.title}
+            subtitle={APP_INFO.description}
+            isMobile={isMobile}
+            onShowSideBar={showSidebar}
+            onCreateNewChat={() => handleConversationIdChange('-1')}
+            onMinimize={() => setIsMinimized(true)}
+            onClose={() => setIsMinimized(true)}
+          />
+
+          {/* Drawer Sidebar for Conversation History */}
+          {isShowSidebar && (
+            <div
+              className="absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex transition-opacity"
+              onClick={hideSidebar}
+            >
+              <div
+                className="w-[280px] h-full bg-white shadow-2xl z-50 flex flex-col"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between p-3.5 border-b border-slate-100 bg-slate-50">
+                  <span className="text-sm font-semibold text-slate-800">Chat History</span>
+                  <button
+                    type="button"
+                    onClick={hideSidebar}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {renderSidebar()}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Chat Body & Input */}
+          <div className="flex-1 flex flex-col overflow-y-auto relative bg-white">
+            <ConfigSence
+              conversationName={conversationName}
+              hasSetInputs={hasSetInputs}
+              isPublicVersion={isShowPrompt}
+              siteInfo={APP_INFO}
+              promptConfig={promptConfig}
+              onStartChat={handleStartChat}
+              canEditInputs={canEditInputs}
+              savedInputs={currInputs as Record<string, any>}
+              onInputsChange={setCurrInputs}
+            />
+
+            {hasSetInputs && (
+              <div className="flex-1 flex flex-col w-full px-2 sm:px-3 pt-2" ref={chatListDomRef}>
                 <Chat
                   chatList={chatList}
                   onSend={handleSend}
@@ -703,10 +757,11 @@ const Main: FC<IMainProps> = () => {
                   visionConfig={visionConfig}
                   fileConfig={fileConfig}
                 />
-              </div>)
-          }
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
