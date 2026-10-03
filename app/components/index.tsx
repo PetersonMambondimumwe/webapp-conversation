@@ -40,6 +40,7 @@ const Main: FC<IMainProps> = () => {
   const [isUnknownReason, setIsUnknownReason] = useState<boolean>(false)
   const [serverError, setServerError] = useState<string>('')
   const [isMinimized, setIsMinimized] = useState<boolean>(false)
+  const [isEmbedded, setIsEmbedded] = useState<boolean>(false)
   const [promptConfig, setPromptConfig] = useState<PromptConfig | null>(null)
   const [inited, setInited] = useState<boolean>(false)
   // in mobile, show sidebar by click button
@@ -51,6 +52,15 @@ const Main: FC<IMainProps> = () => {
     transfer_methods: [TransferMethod.local_file],
   })
   const [fileConfig, setFileConfig] = useState<FileUpload | undefined>()
+
+  useEffect(() => {
+    const embedded = typeof window !== 'undefined' && (
+      window.self !== window.top ||
+      window.location.search.includes('embedded=true') ||
+      window.location.search.includes('iframe=true')
+    )
+    setIsEmbedded(embedded)
+  }, [])
 
   useEffect(() => {
     if (APP_INFO?.title) { document.title = `${APP_INFO.title} - ${APP_INFO.description || 'Web · AI · Automation'}` }
@@ -85,7 +95,7 @@ const Main: FC<IMainProps> = () => {
   } = useConversation()
 
   const [conversationIdChangeBecauseOfNew, setConversationIdChangeBecauseOfNew, getConversationIdChangeBecauseOfNew] = useGetState(false)
-  const [isChatStarted, { setTrue: setChatStarted, setFalse: setChatNotStarted }] = useBoolean(false)
+  const [isChatStarted, { setTrue: setChatStarted, setFalse: setChatNotStarted }] = useBoolean(true)
   const handleStartChat = (inputs: Record<string, any>) => {
     createNewChat()
     setConversationIdChangeBecauseOfNew(true)
@@ -129,7 +139,7 @@ const Main: FC<IMainProps> = () => {
     // update chat list of current conversation
     if (!isNewConversation && !conversationIdChangeBecauseOfNew && !isResponding) {
       fetchChatList(currConversationId).then((res: any) => {
-        const { data } = res
+        const { data = [] } = res || {}
         const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
 
         data.forEach((item: any) => {
@@ -150,10 +160,15 @@ const Main: FC<IMainProps> = () => {
           })
         })
         setChatList(newChatList)
+      }).catch(() => {
+        setChatList(generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs))
       })
     }
 
-    if (isNewConversation && isChatStarted) { setChatList(generateNewChatListWithOpenStatement()) }
+    if (isNewConversation) {
+      setChatStarted()
+      setChatList(generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs))
+    }
   }
   useEffect(handleConversationSwitch, [currConversationId, inited])
 
@@ -161,6 +176,8 @@ const Main: FC<IMainProps> = () => {
     if (id === '-1') {
       createNewChat()
       setConversationIdChangeBecauseOfNew(true)
+      setChatStarted()
+      setChatList(generateNewChatListWithOpenStatement(conversationIntroduction, {}))
     }
     else {
       setConversationIdChangeBecauseOfNew(false)
@@ -170,10 +187,21 @@ const Main: FC<IMainProps> = () => {
     hideSidebar()
   }
 
+  const DEFAULT_OPENING_STATEMENT = 'Hi! 👋 Welcome to Mambo Systems & Analytics.\n\nI can help you learn more about our websites, AI chatbots, automation solutions, pricing, and how we can help your business.\n\nWhat are you looking to build or improve today?'
+
   /*
   * chat info. chat is under conversation.
   */
-  const [chatList, setChatList, getChatList] = useGetState<ChatItem[]>([])
+  const [chatList, setChatList, getChatList] = useGetState<ChatItem[]>([
+    {
+      id: 'init-welcome',
+      content: DEFAULT_OPENING_STATEMENT,
+      isAnswer: true,
+      feedbackDisabled: true,
+      isOpeningStatement: true,
+      suggestedQuestions: [],
+    },
+  ])
   const chatListDomRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     // scroll to bottom with page-level scrolling
@@ -205,7 +233,7 @@ const Main: FC<IMainProps> = () => {
 
   // sometime introduction is not applied to state
   const generateNewChatListWithOpenStatement = (introduction?: string, inputs?: Record<string, any> | null) => {
-    let calculatedIntroduction = introduction || conversationIntroduction || ''
+    let calculatedIntroduction = introduction || conversationIntroduction || DEFAULT_OPENING_STATEMENT
     const calculatedPromptVariables = inputs || currInputs || null
     if (calculatedIntroduction && calculatedPromptVariables) { calculatedIntroduction = replaceVarWithValues(calculatedIntroduction, promptConfig?.prompt_variables || [], calculatedPromptVariables) }
 
@@ -214,12 +242,10 @@ const Main: FC<IMainProps> = () => {
       content: calculatedIntroduction,
       isAnswer: true,
       feedbackDisabled: true,
-      isOpeningStatement: isShowPrompt,
+      isOpeningStatement: true,
       suggestedQuestions,
     }
-    if (calculatedIntroduction) { return [openStatement] }
-
-    return []
+    return [openStatement]
   }
 
   // init
@@ -281,7 +307,7 @@ const Main: FC<IMainProps> = () => {
         if (isNotNewConversation) {
           setCurrConversationId(_conversationId, APP_ID, false)
         }
-        else if (!prompt_variables || prompt_variables.length === 0) {
+        else {
           setChatStarted()
           setChatList(generateNewChatListWithOpenStatement(introduction, {}))
         }
@@ -666,31 +692,59 @@ const Main: FC<IMainProps> = () => {
 
   if (!APP_ID || !APP_INFO || !promptConfig) { return <Loading type='app' /> }
 
+  const handleClose = () => {
+    if (isEmbedded) {
+      try {
+        window.parent.postMessage({ type: 'dify-chat-close', action: 'close' }, '*')
+      }
+      catch (e) {
+        // ignore
+      }
+    }
+    else {
+      setIsMinimized(true)
+    }
+  }
+
+  const handleMinimize = () => {
+    if (isEmbedded) {
+      try {
+        window.parent.postMessage({ type: 'dify-chat-close', action: 'close' }, '*')
+      }
+      catch (e) {
+        // ignore
+      }
+    }
+    else {
+      setIsMinimized(true)
+    }
+  }
+
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-100 via-blue-50/30 to-slate-200 flex flex-col items-center justify-center p-0 sm:p-4 md:p-6 relative select-text">
-      {/* Floating Launcher Button at Bottom Right (from Mockup) */}
-      <button
-        type="button"
-        onClick={() => setIsMinimized(prev => !prev)}
-        className={`fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer ${
-          isMinimized ? 'opacity-100 pointer-events-auto' : 'opacity-90 hover:opacity-100'
-        }`}
-        aria-label="Toggle Chat"
-        title="Chat with Mambo Systems"
-      >
-        <img
-          src="/launcher-btn-hd.png"
-          alt="Chat Launcher"
-          className="w-full h-full object-contain drop-shadow-xl"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = '/launcher-btn.png'
-          }}
-        />
-      </button>
+    <div className={isEmbedded ? "w-full h-full min-h-0 bg-white flex flex-col overflow-hidden relative select-text" : "min-h-screen w-full bg-gradient-to-br from-slate-100 via-blue-50/30 to-slate-200 flex flex-col items-center justify-center p-0 sm:p-4 md:p-6 relative select-text"}>
+      {/* Floating Launcher Button: ONLY shown when standalone AND minimized (never when embedded, never when chat is open) */}
+      {!isEmbedded && isMinimized && (
+        <button
+          type="button"
+          onClick={() => setIsMinimized(false)}
+          className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer"
+          aria-label="Open Chat"
+          title="Chat with Mambo Systems"
+        >
+          <img
+            src="/launcher-btn-hd.png"
+            alt="Chat Launcher"
+            className="w-full h-full object-contain drop-shadow-xl"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = '/launcher-btn.png'
+            }}
+          />
+        </button>
+      )}
 
       {/* Main Widget Card */}
-      {!isMinimized && (
-        <div className="relative w-full max-w-[620px] h-screen sm:h-[90vh] sm:max-h-[820px] bg-white sm:rounded-3xl sm:shadow-2xl sm:border sm:border-slate-200/80 flex flex-col overflow-hidden transition-all duration-300">
+      {(isEmbedded || !isMinimized) && (
+        <div className={isEmbedded ? "relative w-full h-full max-w-full bg-white flex flex-col overflow-hidden" : "relative w-full max-w-[620px] h-screen sm:h-[90vh] sm:max-h-[820px] bg-white sm:rounded-3xl sm:shadow-2xl sm:border sm:border-slate-200/80 flex flex-col overflow-hidden transition-all duration-300"}>
           {/* Branded Header */}
           <Header
             title={APP_INFO.title}
@@ -698,8 +752,8 @@ const Main: FC<IMainProps> = () => {
             isMobile={isMobile}
             onShowSideBar={showSidebar}
             onCreateNewChat={() => handleConversationIdChange('-1')}
-            onMinimize={() => setIsMinimized(true)}
-            onClose={() => setIsMinimized(true)}
+            onMinimize={handleMinimize}
+            onClose={handleClose}
           />
 
           {/* Drawer Sidebar for Conversation History */}
@@ -733,21 +787,21 @@ const Main: FC<IMainProps> = () => {
           )}
 
           {/* Chat Body & Input */}
-          <div className="flex-1 flex flex-col overflow-y-auto relative bg-white">
-            <ConfigSence
-              conversationName={conversationName}
-              hasSetInputs={hasSetInputs}
-              isPublicVersion={isShowPrompt}
-              siteInfo={APP_INFO}
-              promptConfig={promptConfig}
-              onStartChat={handleStartChat}
-              canEditInputs={canEditInputs}
-              savedInputs={currInputs as Record<string, any>}
-              onInputsChange={setCurrInputs}
-            />
-
-            {hasSetInputs && (
-              <div className="flex-1 flex flex-col w-full px-2 sm:px-3 pt-2" ref={chatListDomRef}>
+          <div className="flex-1 flex flex-col overflow-hidden relative bg-white">
+            {promptConfig?.prompt_variables && promptConfig.prompt_variables.length > 0 && !hasSetInputs ? (
+              <ConfigSence
+                conversationName={conversationName}
+                hasSetInputs={hasSetInputs}
+                isPublicVersion={isShowPrompt}
+                siteInfo={APP_INFO}
+                promptConfig={promptConfig}
+                onStartChat={handleStartChat}
+                canEditInputs={canEditInputs}
+                savedInputs={currInputs as Record<string, any>}
+                onInputsChange={setCurrInputs}
+              />
+            ) : (
+              <div className="flex-1 flex flex-col w-full h-full min-h-0 px-2 sm:px-3 pt-2 overflow-y-auto" ref={chatListDomRef}>
                 <Chat
                   chatList={chatList}
                   onSend={handleSend}
