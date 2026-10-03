@@ -8,7 +8,6 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import StreamdownMarkdown from '@/app/components/base/streamdown-markdown'
 import Tooltip from '@/app/components/base/tooltip'
-import WorkflowProcess from '@/app/components/workflow/workflow-process'
 import { randomString } from '@/utils/string'
 import ImageGallery from '../../base/image-gallery'
 import LoadingAnim from '../loading-anim'
@@ -207,12 +206,9 @@ const Answer: FC<IAnswerProps> = ({
         </div>
 
         {/* Message Bubble */}
-        <div className="max-w-[85%] sm:max-w-[80%] min-w-0">
+        <div className="max-w-[88%] sm:max-w-[80%] min-w-0">
           <div className="relative text-sm text-slate-800">
-            <div className={`py-3.5 px-4 sm:px-5 bg-[#f0f4fa] rounded-2xl rounded-tl-xs border border-slate-100/80 shadow-xs leading-relaxed text-[14px] ${workflowProcess && 'min-w-[320px] sm:min-w-[480px]'}`}>
-              {workflowProcess && (
-                <WorkflowProcess data={workflowProcess} hideInfo />
-              )}
+            <div className="py-3 px-3.5 sm:py-3.5 sm:px-5 bg-[#f0f4fa] rounded-2xl rounded-tl-xs border border-slate-100/80 shadow-xs leading-relaxed text-[13px] sm:text-[14px]">
               {isResponding && (isAgentMode ? (!content && (agent_thoughts || []).filter(thoughtItem => !!thoughtItem.thought || !!thoughtItem.tool).length === 0) : !content) ? (
                 <div className="flex items-center justify-center w-6 h-5 py-1">
                   <LoadingAnim type="text" />
@@ -220,7 +216,7 @@ const Answer: FC<IAnswerProps> = ({
               ) : isAgentMode ? (
                 agentModeAnswer
               ) : (
-                <div className="prose prose-slate max-w-none text-slate-800 font-normal leading-relaxed text-[14px] select-text">
+                <div className="prose prose-slate max-w-none text-slate-800 font-normal leading-relaxed text-[13px] sm:text-[14px] [&>p]:my-1.5 first:[&>p]:mt-0 last:[&>p]:mb-0 select-text">
                   <StreamdownMarkdown content={formattedContent} />
                 </div>
               )}
@@ -228,31 +224,31 @@ const Answer: FC<IAnswerProps> = ({
 
             {/* Quick Action Buttons (Websites, AI Chatbots, Automation, Pricing, Learn more...) */}
             {showQuickActions && (
-              <div className="mt-3.5 space-y-2">
+              <div className="mt-3 space-y-1.5 sm:space-y-2">
                 {suggestedQuestions.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                     {suggestedQuestions.map((suggestion, index) => (
                       <button
                         key={index}
                         type="button"
                         onClick={() => suggestionClick(suggestion)}
-                        className="w-full py-2.5 px-4 bg-white hover:bg-blue-50/60 border border-blue-200/90 hover:border-blue-500 rounded-2xl text-left text-[13px] font-medium text-slate-800 shadow-xs hover:shadow-sm transition-all duration-150 flex items-center space-x-2.5 group"
+                        className="w-full py-2 px-2.5 sm:py-2.5 sm:px-3.5 bg-white hover:bg-blue-50/60 border border-blue-200/90 hover:border-blue-500 rounded-xl sm:rounded-2xl text-left text-xs sm:text-[13px] font-medium text-slate-800 shadow-xs hover:shadow-sm transition-all duration-150 flex items-center space-x-2 group"
                       >
-                        <span className="w-2 h-2 rounded-full bg-[#0066ff] shrink-0 group-hover:scale-125 transition-transform" />
+                        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#0066ff] shrink-0 group-hover:scale-125 transition-transform" />
                         <span className="truncate">{suggestion}</span>
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1.5 sm:gap-2">
                     {/* Top 4 in 2-column grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       {DEFAULT_QUICK_ACTIONS.slice(0, 4).map((action, index) => (
                         <button
                           key={index}
                           type="button"
                           onClick={() => suggestionClick(action.title)}
-                          className="w-full py-2.5 px-4 bg-white hover:bg-blue-50/60 border border-blue-200/90 hover:border-blue-500 rounded-2xl text-left text-[13px] font-medium text-slate-800 shadow-xs hover:shadow-sm transition-all duration-150 flex items-center space-x-2.5 group"
+                          className="w-full py-2 px-2.5 sm:py-2.5 sm:px-3.5 bg-white hover:bg-blue-50/60 border border-blue-200/90 hover:border-blue-500 rounded-xl sm:rounded-2xl text-left text-xs sm:text-[13px] font-medium text-slate-800 shadow-xs hover:shadow-sm transition-all duration-150 flex items-center space-x-1.5 sm:space-x-2 group"
                         >
                           <span className="shrink-0 group-hover:scale-110 transition-transform">{action.icon}</span>
                           <span className="truncate">{action.title}</span>
@@ -264,7 +260,7 @@ const Answer: FC<IAnswerProps> = ({
                       <button
                         type="button"
                         onClick={() => suggestionClick(DEFAULT_QUICK_ACTIONS[4].title)}
-                        className="w-full py-2.5 px-4 bg-white hover:bg-blue-50/60 border border-blue-200/90 hover:border-blue-500 rounded-2xl text-left text-[13px] font-medium text-slate-800 shadow-xs hover:shadow-sm transition-all duration-150 flex items-center space-x-2.5 group"
+                        className="w-full py-2 px-2.5 sm:py-2.5 sm:px-4 bg-white hover:bg-blue-50/60 border border-blue-200/90 hover:border-blue-500 rounded-xl sm:rounded-2xl text-left text-xs sm:text-[13px] font-medium text-slate-800 shadow-xs hover:shadow-sm transition-all duration-150 flex items-center space-x-1.5 sm:space-x-2 group"
                       >
                         <span className="shrink-0 group-hover:scale-110 transition-transform">{DEFAULT_QUICK_ACTIONS[4].icon}</span>
                         <span className="truncate">{DEFAULT_QUICK_ACTIONS[4].title}</span>

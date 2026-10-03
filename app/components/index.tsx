@@ -466,12 +466,19 @@ const Main: FC<IMainProps> = () => {
         setAbortController(abortController)
       },
       onData: (message: string, isFirstMessage: boolean, { conversationId: newConversationId, messageId, taskId }: any) => {
-        if (!isAgentMode) {
-          responseItem.content = responseItem.content + message
-        }
-        else {
-          const lastThought = responseItem.agent_thoughts?.[responseItem.agent_thoughts?.length - 1]
-          if (lastThought) { lastThought.thought = lastThought.thought + message } // need immer setAutoFreeze
+        if (message) {
+          if (!isAgentMode) {
+            if (responseItem.content && message.startsWith(responseItem.content)) {
+              responseItem.content = message
+            }
+            else if (!responseItem.content || !responseItem.content.includes(message)) {
+              responseItem.content = responseItem.content ? (responseItem.content + message) : message
+            }
+          }
+          else {
+            const lastThought = responseItem.agent_thoughts?.[responseItem.agent_thoughts?.length - 1]
+            if (lastThought) { lastThought.thought = lastThought.thought + message }
+          }
         }
         if (messageId && !hasSetResponseId) {
           responseItem.id = messageId
@@ -494,21 +501,36 @@ const Main: FC<IMainProps> = () => {
         })
       },
       async onCompleted(hasError?: boolean) {
-        if (hasError) { return }
+        if (hasError) {
+          setRespondingFalse()
+          return
+        }
 
         if (getConversationIdChangeBecauseOfNew()) {
-          const { data: allConversations }: any = await fetchConversations()
-          const newItem: any = await generationConversationName(allConversations[0].id)
-
-          const newAllConversations = produce(allConversations, (draft: any) => {
-            draft[0].name = newItem.name
-          })
-          setConversationList(newAllConversations as any)
+          try {
+            const { data: allConversations }: any = await fetchConversations()
+            if (allConversations && allConversations.length > 0) {
+              const newItem: any = await generationConversationName(allConversations[0].id)
+              const newAllConversations = produce(allConversations, (draft: any) => {
+                draft[0].name = newItem.name
+              })
+              setConversationList(newAllConversations as any)
+            }
+          } catch (e) {
+            // ignore
+          }
         }
         setConversationIdChangeBecauseOfNew(false)
         resetNewConversationInputs()
-        setChatNotStarted()
-        setCurrConversationId(tempNewConversationId, APP_ID, true)
+        if (tempNewConversationId) {
+          setCurrConversationId(tempNewConversationId, APP_ID, true)
+        }
+        updateCurrentQA({
+          responseItem,
+          questionId,
+          placeholderAnswerId,
+          questionItem,
+        })
         setRespondingFalse()
       },
       onFile(file) {
@@ -600,58 +622,62 @@ const Main: FC<IMainProps> = () => {
           },
         ))
       },
-      onError() {
+      onError(msg?: string) {
         setRespondingFalse()
-        // role back placeholder answer
-        setChatList(produce(getChatList(), (draft) => {
-          draft.splice(draft.findIndex(item => item.id === placeholderAnswerId), 1)
-        }))
-      },
-      onWorkflowStarted: ({ workflow_run_id, task_id }) => {
-        // taskIdRef.current = task_id
-        responseItem.workflow_run_id = workflow_run_id
-        responseItem.workflowProcess = {
-          status: WorkflowRunningStatus.Running,
-          tracing: [],
+        if (!responseItem.content) {
+          responseItem.content = 'Sorry, I was unable to complete this request. Please try again.'
+          updateCurrentQA({
+            responseItem,
+            questionId,
+            placeholderAnswerId,
+            questionItem,
+          })
         }
-        setChatList(produce(getChatList(), (draft) => {
-          const currentIndex = draft.findIndex(item => item.id === responseItem.id)
-          draft[currentIndex] = {
-            ...draft[currentIndex],
-            ...responseItem,
-          }
-        }))
       },
-      onWorkflowFinished: ({ data }) => {
-        responseItem.workflowProcess!.status = data.status as WorkflowRunningStatus
-        setChatList(produce(getChatList(), (draft) => {
-          const currentIndex = draft.findIndex(item => item.id === responseItem.id)
-          draft[currentIndex] = {
-            ...draft[currentIndex],
-            ...responseItem,
-          }
-        }))
+      onWorkflowStarted: ({ workflow_run_id, task_id }: any) => {
+        responseItem.workflow_run_id = workflow_run_id
+        if (task_id) { setMessageTaskId(task_id) }
       },
-      onNodeStarted: ({ data }) => {
-        responseItem.workflowProcess!.tracing!.push(data as any)
-        setChatList(produce(getChatList(), (draft) => {
-          const currentIndex = draft.findIndex(item => item.id === responseItem.id)
-          draft[currentIndex] = {
-            ...draft[currentIndex],
-            ...responseItem,
-          }
-        }))
+      onWorkflowFinished: ({ data, conversation_id, message_id }: any) => {
+        const workflowAnswer = data?.outputs?.answer || data?.outputs?.text || data?.outputs?.result || (typeof data?.outputs === 'string' ? data.outputs : '')
+        if (workflowAnswer && (!responseItem.content || responseItem.content.length < workflowAnswer.length)) {
+          responseItem.content = workflowAnswer
+        }
+        if (message_id && !hasSetResponseId) {
+          responseItem.id = message_id
+          hasSetResponseId = true
+        }
+        if (conversation_id && !tempNewConversationId) {
+          tempNewConversationId = conversation_id
+        }
+        updateCurrentQA({
+          responseItem,
+          questionId,
+          placeholderAnswerId,
+          questionItem,
+        })
       },
-      onNodeFinished: ({ data }) => {
-        const currentIndex = responseItem.workflowProcess!.tracing!.findIndex(item => item.node_id === data.node_id)
-        responseItem.workflowProcess!.tracing[currentIndex] = data as any
-        setChatList(produce(getChatList(), (draft) => {
-          const currentIndex = draft.findIndex(item => item.id === responseItem.id)
-          draft[currentIndex] = {
-            ...draft[currentIndex],
-            ...responseItem,
+      onNodeStarted: () => {
+        // Workflow process hidden per request
+      },
+      onNodeFinished: ({ data, conversation_id, message_id }: any) => {
+        const nodeAnswer = data?.outputs?.answer || data?.outputs?.text || data?.outputs?.result
+        if (nodeAnswer && (data?.node_type === 'answer' || data?.node_type === 'end' || !responseItem.content)) {
+          responseItem.content = nodeAnswer
+          if (message_id && !hasSetResponseId) {
+            responseItem.id = message_id
+            hasSetResponseId = true
           }
-        }))
+          if (conversation_id && !tempNewConversationId) {
+            tempNewConversationId = conversation_id
+          }
+          updateCurrentQA({
+            responseItem,
+            questionId,
+            placeholderAnswerId,
+            questionItem,
+          })
+        }
       },
     })
   }

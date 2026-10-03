@@ -217,14 +217,32 @@ const handleStream = (
             else if (bufferObj.event === 'workflow_started') {
               onWorkflowStarted?.(bufferObj as WorkflowStartedResponse)
             }
+            else if (bufferObj.event === 'node_finished') {
+              const nodeAnswer = bufferObj.data?.outputs?.answer || bufferObj.data?.outputs?.text || bufferObj.data?.outputs?.result
+              if (nodeAnswer && (bufferObj.data?.node_type === 'answer' || bufferObj.data?.node_type === 'end' || bufferObj.data?.node_type === 'llm' || !bufferObj.data?.node_type)) {
+                onData(unicodeToChar(typeof nodeAnswer === 'string' ? nodeAnswer : JSON.stringify(nodeAnswer)), isFirstMessage, {
+                  conversationId: bufferObj.conversation_id,
+                  taskId: bufferObj.task_id,
+                  messageId: bufferObj.message_id || bufferObj.id,
+                })
+                isFirstMessage = false
+              }
+              onNodeFinished?.(bufferObj as NodeFinishedResponse)
+            }
             else if (bufferObj.event === 'workflow_finished') {
+              const workflowAnswer = bufferObj.data?.outputs?.answer || bufferObj.data?.outputs?.text || bufferObj.data?.outputs?.result || (typeof bufferObj.data?.outputs === 'string' ? bufferObj.data.outputs : '')
+              if (workflowAnswer) {
+                onData(unicodeToChar(typeof workflowAnswer === 'string' ? workflowAnswer : JSON.stringify(workflowAnswer)), isFirstMessage, {
+                  conversationId: bufferObj.conversation_id,
+                  taskId: bufferObj.task_id,
+                  messageId: bufferObj.message_id || bufferObj.id,
+                })
+                isFirstMessage = false
+              }
               onWorkflowFinished?.(bufferObj as WorkflowFinishedResponse)
             }
             else if (bufferObj.event === 'node_started') {
               onNodeStarted?.(bufferObj as NodeStartedResponse)
-            }
-            else if (bufferObj.event === 'node_finished') {
-              onNodeFinished?.(bufferObj as NodeFinishedResponse)
             }
           }
         })
