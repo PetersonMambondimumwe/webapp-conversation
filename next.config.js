@@ -17,6 +17,14 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   output: 'standalone',
+  env: {
+    NEXT_PUBLIC_APP_ID: process.env.NEXT_PUBLIC_APP_ID || process.env.APP_ID,
+    NEXT_PUBLIC_APP_KEY: process.env.NEXT_PUBLIC_APP_KEY || process.env.APP_KEY,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || process.env.API_URL,
+    APP_ID: process.env.APP_ID || process.env.NEXT_PUBLIC_APP_ID,
+    APP_KEY: process.env.APP_KEY || process.env.NEXT_PUBLIC_APP_KEY,
+    API_URL: process.env.API_URL || process.env.NEXT_PUBLIC_API_URL,
+  },
 }
 
 module.exports = nextConfig

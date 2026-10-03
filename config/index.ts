@@ -1,7 +1,26 @@
 import type { AppInfo } from '@/types/app'
-export const APP_ID = `${process.env.NEXT_PUBLIC_APP_ID}`
-export const API_KEY = `${process.env.NEXT_PUBLIC_APP_KEY}`
-export const API_URL = `${process.env.NEXT_PUBLIC_API_URL}`
+const cleanEnv = (key: string, fallback = '') => {
+  const val = process.env[key]
+  if (!val || val === 'undefined' || val === 'null') return fallback
+  let trimmed = val.trim()
+  if ((trimmed.startsWith("'") && trimmed.endsWith("'")) || (trimmed.startsWith('"') && trimmed.endsWith('"'))) {
+    trimmed = trimmed.slice(1, -1).trim()
+  }
+  return trimmed || fallback
+}
+
+export const APP_ID = cleanEnv('NEXT_PUBLIC_APP_ID') || cleanEnv('APP_ID')
+export const API_KEY = cleanEnv('NEXT_PUBLIC_APP_KEY') || cleanEnv('APP_KEY')
+
+const rawApiUrl = cleanEnv('NEXT_PUBLIC_API_URL') || cleanEnv('API_URL')
+export const API_URL = (() => {
+  if (!rawApiUrl) return 'https://api.dify.ai/v1'
+  let url = rawApiUrl
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `https://${url}`
+  }
+  return url.replace(/\/+$/, '')
+})()
 export const APP_INFO: AppInfo = {
   title: 'Chat APP',
   description: '',

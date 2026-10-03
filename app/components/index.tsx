@@ -31,13 +31,14 @@ const Main: FC<IMainProps> = () => {
   const { t } = useTranslation()
   const media = useBreakpoints()
   const isMobile = media === MediaType.mobile
-  const hasSetAppConfig = APP_ID && API_KEY
+  const hasSetAppConfig = Boolean(APP_ID && API_KEY && APP_ID !== 'undefined' && API_KEY !== 'undefined')
 
   /*
   * app info
   */
   const [appUnavailable, setAppUnavailable] = useState<boolean>(false)
   const [isUnknownReason, setIsUnknownReason] = useState<boolean>(false)
+  const [serverError, setServerError] = useState<string>('')
   const [promptConfig, setPromptConfig] = useState<PromptConfig | null>(null)
   const [inited, setInited] = useState<boolean>(false)
   // in mobile, show sidebar by click button
@@ -287,6 +288,7 @@ const Main: FC<IMainProps> = () => {
         else {
           setIsUnknownReason(true)
           setAppUnavailable(true)
+          setServerError(e?.message || '')
         }
       }
     })()
@@ -648,7 +650,12 @@ const Main: FC<IMainProps> = () => {
     )
   }
 
-  if (appUnavailable) { return <AppUnavailable isUnknownReason={isUnknownReason} errMessage={!hasSetAppConfig ? 'Please set APP_ID and API_KEY in config/index.tsx' : ''} /> }
+  if (appUnavailable) {
+    const errMessage = !hasSetAppConfig
+      ? 'Please set NEXT_PUBLIC_APP_ID and NEXT_PUBLIC_APP_KEY in your environment variables'
+      : (serverError || '')
+    return <AppUnavailable isUnknownReason={isUnknownReason} errMessage={errMessage} />
+  }
 
   if (!APP_ID || !APP_INFO || !promptConfig) { return <Loading type='app' /> }
 
